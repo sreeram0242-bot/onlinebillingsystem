@@ -1,0 +1,236 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-display: "DM Serif Display", ui-serif, Georgia, serif;
+  --font-sans: "Fira Sans", system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+}
+
+:root {
+  --radius: 0.5rem;
+
+  /* Emerald Prestige — refined emerald + gold on warm ivory */
+  --background: oklch(0.975 0.012 90);            /* #f5f0e0 warm ivory */
+  --foreground: oklch(0.22 0.03 160);             /* deep emerald ink */
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.03 160);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.03 160);
+
+  --primary: oklch(0.32 0.07 160);                /* #064e3b deep emerald */
+  --primary-foreground: oklch(0.975 0.012 90);
+
+  --secondary: oklch(0.94 0.015 100);
+  --secondary-foreground: oklch(0.32 0.07 160);
+
+  --muted: oklch(0.96 0.01 100);
+  --muted-foreground: oklch(0.5 0.02 160);
+
+  --accent: oklch(0.76 0.12 85);                  /* #c9a84c gold */
+  --accent-foreground: oklch(0.22 0.03 160);
+
+  --destructive: oklch(0.58 0.2 27);
+  --destructive-foreground: oklch(1 0 0);
+
+  --success: oklch(0.52 0.12 160);
+  --success-foreground: oklch(1 0 0);
+
+  --border: oklch(0.9 0.01 100);
+  --input: oklch(0.92 0.008 100);
+  --ring: oklch(0.76 0.12 85);
+}
+
+/* Dark mode — intentionally low-contrast (barely visible) per request */
+.dark {
+  --background: oklch(0.14 0.01 160);              /* near-black emerald */
+  --foreground: oklch(0.22 0.008 160);             /* barely lighter than bg */
+
+  --card: oklch(0.16 0.01 160);
+  --card-foreground: oklch(0.22 0.008 160);
+
+  --popover: oklch(0.16 0.01 160);
+  --popover-foreground: oklch(0.22 0.008 160);
+
+  --primary: oklch(0.24 0.02 160);
+  --primary-foreground: oklch(0.28 0.015 160);
+
+  --secondary: oklch(0.17 0.008 160);
+  --secondary-foreground: oklch(0.22 0.008 160);
+
+  --muted: oklch(0.16 0.008 160);
+  --muted-foreground: oklch(0.2 0.006 160);
+
+  --accent: oklch(0.24 0.025 85);
+  --accent-foreground: oklch(0.28 0.015 85);
+
+  --destructive: oklch(0.28 0.04 27);
+  --destructive-foreground: oklch(0.22 0.008 160);
+
+  --success: oklch(0.24 0.02 160);
+  --success-foreground: oklch(0.22 0.008 160);
+
+  --border: oklch(0.18 0.008 160);
+  --input: oklch(0.17 0.008 160);
+  --ring: oklch(0.22 0.015 85);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Refined card — subtle border + soft elevation */
+@utility card-elevated {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px oklch(0.22 0.03 160 / 0.04), 0 1px 3px oklch(0.22 0.03 160 / 0.06);
+}
+
+@utility card-soft {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+@utility card-menu {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px oklch(0.22 0.03 160 / 0.04), 0 1px 3px oklch(0.22 0.03 160 / 0.06);
+}
+
+@utility btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  padding: 0.55rem 1.05rem;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+  &:hover {
+    background: oklch(0.26 0.07 160);
+    box-shadow: 0 1px 3px oklch(0.22 0.03 160 / 0.12);
+  }
+}
+
+@utility btn-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+  padding: 0.55rem 1.05rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+  &:hover {
+    filter: brightness(0.97);
+    box-shadow: 0 1px 3px oklch(0.22 0.03 160 / 0.12);
+  }
+}
+
+@utility btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  color: var(--color-foreground);
+  font-weight: 500;
+  font-size: 0.875rem;
+  background: var(--color-card);
+  transition: background 0.15s ease, border-color 0.15s ease;
+  &:hover {
+    background: var(--color-secondary);
+    border-color: var(--color-primary);
+  }
+}
+
+@utility input-field {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  color: var(--color-foreground);
+  font-weight: 400;
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px oklch(0.32 0.07 160 / 0.12);
+  }
+  &::placeholder {
+    color: var(--color-muted-foreground);
+  }
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea,
+  .input-field {
+    font-size: 16px;
+  }
+
+  .btn-primary,
+  .btn-accent,
+  .btn-ghost {
+    min-height: 2.25rem;
+  }
+}
