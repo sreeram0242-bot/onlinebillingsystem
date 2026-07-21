@@ -10,11 +10,7 @@ export default defineConfig({
   vite: {},
   tanstackStart: {
     server: {
-      preset: 'github-pages',
-      prerender: {
-        routes: ['/'],
-        crawlLinks: true
-      }
+      preset: 'node-server',
     }
   },
 });

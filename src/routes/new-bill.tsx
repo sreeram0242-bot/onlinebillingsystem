@@ -1,14 +1,8 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
-  addBill,
-  updateBill,
   computeLoyalty,
-  loadBills,
-  loadMenu,
-  loadCategories,
-  loadSettings,
   getCategoryOf,
   newId,
   todayISO,
@@ -17,6 +11,8 @@ import {
   type MenuItem,
   type AppSettings,
 } from "@/lib/loyalty";
+import { getMenuAction, getBillsAction, getSettingsAction, addBillAction, updateBillAction } from "../data";
+import { isPrinterConnected, printBill } from "@/lib/thermalPrint";
 
 export const Route = createFileRoute("/new-bill")({
   validateSearch: (search: Record<string, unknown>): { editId?: string } => {
@@ -24,15 +20,30 @@ export const Route = createFileRoute("/new-bill")({
   },
   head: () => ({ meta: [{ title: "New Bill — Engineers Kitchen" }] }),
   component: NewBill,
+  loader: async () => {
+    const [menu, bills, settings] = await Promise.all([
+      getMenuAction(),
+      getBillsAction(),
+      getSettingsAction()
+    ]);
+    const categories = settings.categoryNames.length > 0
+      ? settings.categoryNames
+      : ["Sandwiches", "Burgers", "Fries", "Manchurian", "Noodles", "Rice", "Momos", "Mojito"];
+    return { 
+      menu: menu.map(m => ({ ...m, category: m.category ?? undefined, costPrice: m.costPrice ?? undefined })) as MenuItem[],
+      bills: bills.map(b => ({ ...b, items: b.items.map(i => ({ ...i, costPrice: i.costPrice ?? undefined })) })) as any,
+      settings, 
+      categories 
+    };
+  }
 });
 
 function NewBill() {
+  const { menu, bills: allBills, settings, categories: allCategories } = Route.useLoaderData();
   const navigate = useNavigate();
+  const router = useRouter();
   const searchParams = Route.useSearch();
   const editId = searchParams.editId;
-  const [menu, setMenu] = useState<MenuItem[]>([]);
-  const [allCategories, setAllCategories] = useState<string[]>([]);
-  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [date, setDate] = useState(todayISO());
@@ -45,17 +56,15 @@ function NewBill() {
   const [freeMode, setFreeMode] = useState<Set<string>>(new Set());
   const [savedGstPct, setSavedGstPct] = useState<number | null>(null);
   const [originalDate, setOriginalDate] = useState<string | null>(null);
-  const [originalFreeItem, setOriginalFreeItem] = useState<{ name: string; price: number; costPrice?: number } | null>(null);
+  const [originalFreeItem, setOriginalFreeItem] = useState<{ name: string; price: number; costPrice?: number | null } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "GPAY" | "SPLIT">("CASH");
+  const [splitCash, setSplitCash] = useState<string>("");
+  const [splitGpay, setSplitGpay] = useState<string>("");
 
 
   useEffect(() => {
-    setMenu(loadMenu());
-    setAllCategories(loadCategories());
-    const s = loadSettings();
-    setSettings(s);
-    
     if (editId) {
-      const existingBill = loadBills().find(b => b.id === editId);
+      const existingBill = (allBills as any[]).find((b: any) => b.id === editId);
       if (existingBill) {
         setName(existingBill.name);
         setPhone(existingBill.phone);
@@ -64,36 +73,39 @@ function NewBill() {
         setItems(existingBill.items);
         setSavedGstPct(existingBill.gstPercentage ?? 0);
         
-        const mList = loadMenu();
-        const freeNames = existingBill.items.filter(i => i.isFree).map(i => i.name);
-        setFreeMode(new Set(mList.filter(m => freeNames.includes(m.name)).map(m => m.id)));
+        const freeNames = existingBill.items.filter((i: any) => i.isFree).map((i: any) => i.name);
+        setFreeMode(new Set(menu.filter(m => freeNames.includes(m.name)).map(m => m.id)));
 
         if (existingBill.tableName) setTableName(existingBill.tableName);
         if (existingBill.orderNo) setOrderNo(existingBill.orderNo);
-        if (existingBill.freeItem) {
-          setOriginalFreeItem(existingBill.freeItem);
-          const m = mList.find(x => x.name === existingBill.freeItem?.name);
+        if (existingBill.freeItemName) {
+          setOriginalFreeItem({ 
+            name: existingBill.freeItemName, 
+            price: existingBill.freeItemPrice ?? 0, 
+            costPrice: existingBill.freeItemCost 
+          });
+          const m = menu.find(x => x.name === existingBill.freeItemName);
           if (m) setFreeItemId(m.id);
         }
       }
     } else {
-      if (s.tablesEnabled && s.tableNames.length > 0) setTableName(s.tableNames[0]);
-      setOrderNo(nextOrderNumberForDate(loadBills(), todayISO()));
+      if (settings.tablesEnabled && settings.tableNames.length > 0) setTableName(settings.tableNames[0]);
+      setOrderNo(nextOrderNumberForDate(allBills as any, todayISO()));
     }
-  }, [editId]);
+  }, [editId, allBills, menu, settings]);
 
   useEffect(() => {
     if (editId && date === originalDate) {
-      const b = loadBills().find(x => x.id === editId);
-      if (b) setOrderNo(b.orderNo ?? nextOrderNumberForDate(loadBills(), date));
+      const b = (allBills as any[]).find((x: any) => x.id === editId);
+      if (b) setOrderNo(b.orderNo ?? nextOrderNumberForDate(allBills as any, date));
     } else {
-      setOrderNo(nextOrderNumberForDate(loadBills(), date));
+      setOrderNo(nextOrderNumberForDate(allBills as any, date));
     }
-  }, [date, editId, originalDate]);
+  }, [date, editId, originalDate, allBills]);
 
   useEffect(() => {
     if (phone.length >= 4) {
-      const existing = loadBills().find((b) => b.phone === phone);
+      const existing = (allBills as any[]).find((b: any) => b.phone === phone);
       if (existing && !name) setName(existing.name);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -101,8 +113,8 @@ function NewBill() {
 
   const loyalty = useMemo(() => {
     if (!phone) return null;
-    return computeLoyalty(loadBills(), phone);
-  }, [phone]);
+    return computeLoyalty(allBills as any, phone);
+  }, [phone, allBills]);
 
   const streakOn = settings?.streakOfferEnabled ?? false;
   const eligibleForFree = (streakOn && loyalty?.eligibleToday && date === todayISO()) || !!originalFreeItem;
@@ -125,8 +137,8 @@ function NewBill() {
 
   const usedCategories = Array.from(new Set(menu.map((m) => getCategoryOf(m))));
   const orderedCats = [
-    ...allCategories.filter((c) => usedCategories.includes(c)),
-    ...usedCategories.filter((c) => !allCategories.includes(c)),
+    ...allCategories.filter((c: string) => usedCategories.includes(c)),
+    ...usedCategories.filter((c: string) => !allCategories.includes(c)),
   ];
   const categories = ["All", ...orderedCats];
 
@@ -159,7 +171,7 @@ function NewBill() {
   }
 
 
-  function save() {
+  async function save() {
     if (!settings) return;
     if (items.length === 0) { toast.error("Add at least one item."); return; }
     // Customer details are now ALWAYS optional to respect privacy.
@@ -193,18 +205,51 @@ function NewBill() {
       freeItem,
       tableName: settings.tablesEnabled ? tableName : undefined,
       orderNo,
+      paymentMethod,
+      splitCash: paymentMethod === "SPLIT" ? (parseFloat(splitCash) || 0) : undefined,
+      splitGpay: paymentMethod === "SPLIT" ? (parseFloat(splitGpay) || 0) : undefined,
     };
 
-    if (editId) {
-      updateBill(editId, billData);
-      toast.success(`Bill #${orderNo} updated`);
-    } else {
-      addBill(billData);
-      toast.success(`Bill #${orderNo} saved · ₹${total}`);
-    }
+    try {
+      if (editId) {
+        await updateBillAction({ data: billData });
+        toast.success(`Bill #${orderNo} updated`);
+      } else {
+        await addBillAction({ data: billData });
+        toast.success(`Bill #${orderNo} saved · ₹${total}`);
+      }
 
-    if (phone.trim()) navigate({ to: "/customer/$phone", params: { phone: phone.trim() } });
-    else navigate({ to: "/bills" });
+      // Auto-print if enabled and printer connected
+      if ((settings as any).printEnabled && isPrinterConnected()) {
+        try {
+          await printBill({
+            hotelName: (settings as any).hotelName || "Hotel",
+            orderNo,
+            date,
+            tableName: settings.tablesEnabled ? tableName : undefined,
+            customerName: name.trim() || undefined,
+            customerPhone: phone.trim() || undefined,
+            items,
+            subtotal,
+            gstPct,
+            gstAmount,
+            total,
+            paymentMethod,
+            splitCash: paymentMethod === "SPLIT" ? (parseFloat(splitCash) || 0) : undefined,
+            splitGpay: paymentMethod === "SPLIT" ? (parseFloat(splitGpay) || 0) : undefined,
+            freeItemName: freeItem?.name,
+          });
+        } catch (pe: any) {
+          toast.error("Print failed: " + (pe.message || "Printer error"));
+        }
+      }
+      
+      router.invalidate();
+      if (phone.trim()) navigate({ to: "/customer/$phone", params: { phone: phone.trim() } });
+      else navigate({ to: "/bills" });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save bill");
+    }
   }
 
   if (!settings) return null;
@@ -222,27 +267,31 @@ function NewBill() {
           </div>
 
           <div className="mt-2 grid gap-2 sm:mt-3 sm:gap-3">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Phone <span className="text-muted-foreground/50 lowercase tracking-normal font-normal">(optional)</span>
-              <input
-                className="input-field mt-1"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                placeholder="10-digit phone"
-                inputMode="numeric"
-                maxLength={15}
-              />
-            </label>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Name <span className="text-muted-foreground/50 lowercase tracking-normal font-normal">(optional)</span>
-              <input
-                className="input-field mt-1"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Customer name"
-                maxLength={60}
-              />
-            </label>
+            {settings.requireCustomerDetails && (
+              <>
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Phone <span className="text-muted-foreground/50 lowercase tracking-normal font-normal">(optional)</span>
+                  <input
+                    className="input-field mt-1"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                    placeholder="10-digit phone"
+                    inputMode="numeric"
+                    maxLength={15}
+                  />
+                </label>
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Name <span className="text-muted-foreground/50 lowercase tracking-normal font-normal">(optional)</span>
+                  <input
+                    className="input-field mt-1"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Customer name"
+                    maxLength={60}
+                  />
+                </label>
+              </>
+            )}
             <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Bill Date
               <input
@@ -262,7 +311,7 @@ function NewBill() {
                   onChange={(e) => setTableName(e.target.value)}
                 >
                   <option value="">— select —</option>
-                  {settings.tableNames.map((t) => (
+                  {(settings.tableNames as string[]).map((t: string) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
@@ -349,6 +398,35 @@ function NewBill() {
             </div>
           )}
 
+          {items.length > 0 && (
+            <div className="mt-3 space-y-3 rounded-lg border-2 border-primary/20 bg-secondary/50 p-3">
+              <div className="text-sm font-bold text-primary">Payment Method</div>
+              <div className="flex flex-wrap gap-2">
+                {(["CASH", "GPAY", "SPLIT"] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setPaymentMethod(m)}
+                    className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                      paymentMethod === m ? "bg-accent text-accent-foreground" : "bg-card text-foreground hover:bg-primary/10"
+                    }`}
+                  >{m}</button>
+                ))}
+              </div>
+              {paymentMethod === "SPLIT" && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <label className="block text-xs font-bold text-muted-foreground">
+                    Cash (₹)
+                    <input type="number" className="input-field mt-1 w-full" value={splitCash} onChange={e => setSplitCash(e.target.value)} placeholder="0" />
+                  </label>
+                  <label className="block text-xs font-bold text-muted-foreground">
+                    GPay (₹)
+                    <input type="number" className="input-field mt-1 w-full" value={splitGpay} onChange={e => setSplitGpay(e.target.value)} placeholder="0" />
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
+
           <button onClick={save} className="btn-accent mt-3 w-full text-sm sm:mt-5 sm:text-base md:text-lg">
             {editId ? `💾 Update Bill · ₹${total}` : `💾 Save Bill · ₹${total}`}
           </button>
@@ -418,18 +496,20 @@ function NewBill() {
                     >+</button>
                   </div>
                 )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleFreeMode(m.id); }}
-                  aria-pressed={isFree}
-                  title={isFree ? "Free ON — tap item to add as complimentary" : "Tap to mark this item free for the next add"}
-                  className={`shrink-0 border-l-2 px-1.5 text-[9px] font-black uppercase transition-colors sm:px-2 sm:text-[10px] sm:tracking-wider ${
-                    isFree
-                      ? "border-accent bg-accent text-accent-foreground"
-                      : "border-primary/20 text-muted-foreground hover:text-accent"
-                  }`}
-                >
-                  Free
-                </button>
+                {settings.freeItemsEnabled && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleFreeMode(m.id); }}
+                    aria-pressed={isFree}
+                    title={isFree ? "Free ON — tap item to add as complimentary" : "Tap to mark this item free for the next add"}
+                    className={`shrink-0 border-l-2 px-1.5 text-[9px] font-black uppercase transition-colors sm:px-2 sm:text-[10px] sm:tracking-wider ${
+                      isFree
+                        ? "border-accent bg-accent text-accent-foreground"
+                        : "border-primary/20 text-muted-foreground hover:text-accent"
+                    }`}
+                  >
+                    Free
+                  </button>
+                )}
               </div>
             );
           })}

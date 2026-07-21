@@ -1,42 +1,51 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-  loadMenu,
-  saveMenu,
-  newId,
-  loadCategories,
-  saveCategories,
-  getCategoryOf,
-  type MenuItem,
-} from "@/lib/loyalty";
+import { newId, getCategoryOf, type MenuItem } from "@/lib/loyalty";
+import { getMenuAction, saveMenuAction, saveCategoriesAction, getSettingsAction, importDefaultMenuAction } from "../data";
+import { useRouter } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/menu")({
   head: () => ({ meta: [{ title: "Menu — Engineers Kitchen" }] }),
   component: MenuPage,
+  loader: async () => {
+    const menu = await getMenuAction();
+    const settings = await getSettingsAction();
+    const categories = settings.categoryNames.length > 0 
+      ? settings.categoryNames 
+      : ["Sandwiches", "Burgers", "Fries", "Manchurian", "Noodles", "Rice", "Momos", "Mojito"];
+    return { 
+      menu: menu.map(m => ({ ...m, category: m.category ?? undefined, costPrice: m.costPrice ?? undefined })) as MenuItem[],
+      categories 
+    };
+  }
 });
 
 function MenuPage() {
-  const [menu, setMenu] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const { menu: initialMenu, categories: initialCategories } = Route.useLoaderData();
+  const router = useRouter();
+  
+  const [menu, setMenu] = useState<MenuItem[]>(initialMenu);
+  const [categories, setCategories] = useState<string[]>(initialCategories);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [costPrice, setCostPrice] = useState("");
-  const [itemCat, setItemCat] = useState<string>("");
+  const [itemCat, setItemCat] = useState<string>(initialCategories[0] ?? "");
   const [search, setSearch] = useState("");
   const [newCategory, setNewCategory] = useState("");
   const [filterCat, setFilterCat] = useState<string>("All");
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    setMenu(loadMenu());
-    const cats = loadCategories();
-    setCategories(cats);
-    setItemCat(cats[0] ?? "");
-  }, []);
-
-  function persist(next: MenuItem[]) { setMenu(next); saveMenu(next); }
-  function persistCats(next: string[]) { setCategories(next); saveCategories(next); }
+  async function persist(next: MenuItem[]) { 
+    setMenu(next); 
+    await saveMenuAction({ data: next }); 
+    router.invalidate();
+  }
+  async function persistCats(next: string[]) { 
+    setCategories(next); 
+    await saveCategoriesAction({ data: next }); 
+    router.invalidate();
+  }
 
   function resetForm() {
     setName(""); setPrice(""); setCostPrice("");
@@ -99,7 +108,23 @@ function MenuPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="font-display text-3xl text-primary">Menu Items</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h1 className="font-display text-3xl text-primary">Menu Items</h1>
+        {menu.length === 0 && (
+          <button
+            onClick={async () => {
+              try {
+                const result = await importDefaultMenuAction();
+                if (result.skipped) toast.info(result.message);
+                else { toast.success(result.message); router.invalidate(); }
+              } catch (e: any) { toast.error(e.message || "Failed to import"); }
+            }}
+            className="btn-accent"
+          >
+            📥 Import Default Menu
+          </button>
+        )}
+      </div>
 
       {/* Categories */}
       <div className="card-menu space-y-3 p-5">

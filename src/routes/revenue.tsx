@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   BarChart,
@@ -11,28 +11,32 @@ import {
   CartesianGrid,
 } from "recharts";
 import {
-  loadBills,
-  loadExpenses,
-  addExpense,
-  deleteExpense,
-  loadSettings,
-  loadMenu,
   formatDate,
-  newId,
   todayISO,
-  loadDeletedBills,
-  clearDeletedBills,
-  type Bill,
-  type Expense,
-  type AppSettings,
-  type DeletedBill,
 } from "@/lib/loyalty";
+import {
+  getBillsAction,
+  getExpensesAction,
+  getSettingsAction,
+  getMenuAction,
+  addExpenseAction,
+  deleteExpenseAction
+} from "../data";
 
 type Period = "daily" | "monthly" | "yearly" | "custom";
 
 export const Route = createFileRoute("/revenue")({
   head: () => ({ meta: [{ title: "Revenue — Engineers Kitchen" }] }),
   component: RevenuePage,
+  loader: async () => {
+    const [bills, expenses, settings, menu] = await Promise.all([
+      getBillsAction(),
+      getExpensesAction(),
+      getSettingsAction(),
+      getMenuAction(),
+    ]);
+    return { bills, expenses, settings, menu };
+  }
 });
 
 function periodRange(p: Period, customFrom: string, customTo: string): [string, string] {
@@ -48,38 +52,38 @@ function inRange(iso: string, [from, to]: [string, string]) {
 }
 
 function RevenuePage() {
+  const { bills: initialBills, expenses: initialExpenses, settings, menu } = Route.useLoaderData();
+  const router = useRouter();
+  
   const [period, setPeriod] = useState<Period>("monthly");
+  const [paymentTab, setPaymentTab] = useState<"ALL" | "CASH" | "UPI">("ALL");
   const [customFrom, setCustomFrom] = useState(todayISO());
   const [customTo, setCustomTo] = useState(todayISO());
-  const [bills, setBills] = useState<Bill[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [deletedBills, setDeletedBills] = useState<DeletedBill[]>([]);
+  const [deletedBills, setDeletedBills] = useState<any[]>([]);
 
   const [expDate, setExpDate] = useState(todayISO());
   const [expDesc, setExpDesc] = useState("");
   const [expAmount, setExpAmount] = useState("");
 
-  function refresh() {
-    setBills(loadBills());
-    setExpenses(loadExpenses());
-    setSettings(loadSettings());
-    setDeletedBills(loadDeletedBills());
-  }
-  useEffect(() => { refresh(); }, []);
-
   const range = useMemo(() => periodRange(period, customFrom, customTo), [period, customFrom, customTo]);
-  const filteredBills = bills.filter((b) => inRange(b.date, range));
-  const filteredExpenses = expenses.filter((e) => inRange(e.date, range));
+  const filteredBills = initialBills.filter((b) => inRange(b.date, range));
+  const filteredExpenses = initialExpenses.filter((e) => inRange(e.date, range));
 
-  const revenue = filteredBills.reduce((s, b) => s + b.total, 0);
-  const menuCostMap = new Map(loadMenu().map((m) => [m.name, m.costPrice ?? 0]));
+  function getBillValue(b: any) {
+    if (paymentTab === "ALL") return b.total;
+    if (paymentTab === "CASH") return (b.paymentMethod === "CASH" ? b.total : (b.paymentMethod === "SPLIT" ? (b.splitCash || 0) : 0));
+    if (paymentTab === "UPI") return (b.paymentMethod === "GPAY" ? b.total : (b.paymentMethod === "SPLIT" ? (b.splitGpay || 0) : 0));
+    return 0;
+  }
+
+  const revenue = filteredBills.reduce((s, b) => s + getBillValue(b), 0);
+  const menuCostMap = new Map(menu.map((m) => [m.name, m.costPrice ?? 0]));
 
   const totalCogs = filteredBills.reduce(
-    (s, b) => {
-      let cogs = b.items.reduce((x, it) => x + (it.costPrice ?? 0) * it.qty, 0);
-      if (b.freeItem) {
-        cogs += b.freeItem.costPrice ?? menuCostMap.get(b.freeItem.name) ?? 0;
+    (s, b: any) => {
+      let cogs = b.items.reduce((x: any, it: any) => x + (it.costPrice ?? 0) * it.qty, 0);
+      if (b.freeItemName) {
+        cogs += b.freeItemCost ?? menuCostMap.get(b.freeItemName) ?? 0;
       }
       return s + cogs;
     },
@@ -90,9 +94,9 @@ function RevenuePage() {
 
   // Top 10 items
   const itemQty = new Map<string, number>();
-  for (const b of filteredBills) {
+  for (const b of filteredBills as any[]) {
     for (const it of b.items) itemQty.set(it.name, (itemQty.get(it.name) ?? 0) + it.qty);
-    if (b.freeItem) itemQty.set(b.freeItem.name, (itemQty.get(b.freeItem.name) ?? 0) + 1);
+    if (b.freeItemName) itemQty.set(b.freeItemName, (itemQty.get(b.freeItemName) ?? 0) + 1);
   }
   const top10 = Array.from(itemQty.entries())
     .map(([name, qty]) => ({ name, qty }))
@@ -103,17 +107,19 @@ function RevenuePage() {
   const tableStats = new Map<string, { bills: number; revenue: number }>();
   for (const b of filteredBills) {
     if (!b.tableName) continue;
+    const val = getBillValue(b);
+    if (val === 0 && paymentTab !== "ALL") continue; // only count tables that contributed to this tab
     const s = tableStats.get(b.tableName) ?? { bills: 0, revenue: 0 };
     s.bills++;
-    s.revenue += b.total;
+    s.revenue += val;
     tableStats.set(b.tableName, s);
   }
 
   // Free items log (loyalty free + any item marked isFree). Value = original menu price.
-  const menuPriceMap = new Map(loadMenu().map((m) => [m.name, m.price]));
+  const menuPriceMap = new Map(menu.map((m) => [m.name, m.price]));
   const freeItemsLog: { date: string; name?: string; phone?: string; item: string; qty: number; value: number }[] = [];
-  for (const b of filteredBills) {
-    if (b.freeItem) freeItemsLog.push({ date: b.date, name: b.name, phone: b.phone, item: b.freeItem.name, qty: 1, value: b.freeItem.price });
+  for (const b of filteredBills as any[]) {
+    if (b.freeItemName) freeItemsLog.push({ date: b.date, name: b.name, phone: b.phone, item: b.freeItemName, qty: 1, value: b.freeItemPrice ?? 0 });
     for (const it of b.items) {
       if (it.isFree) {
         const unit = menuPriceMap.get(it.name) ?? it.price ?? 0;
@@ -125,19 +131,30 @@ function RevenuePage() {
   const freeCount = freeItemsLog.reduce((s, f) => s + f.qty, 0);
   const freeTotalValue = freeItemsLog.reduce((s, f) => s + (f.value || 0), 0);
 
-  function addExp(e: React.FormEvent) {
+  async function addExp(e: React.FormEvent) {
     e.preventDefault();
     const amt = parseFloat(expAmount);
     if (!expDesc.trim() || !Number.isFinite(amt) || amt <= 0) { toast.error("Enter description and amount"); return; }
-    addExpense({ id: newId(), date: expDate, description: expDesc.trim(), amount: amt });
-    setExpDesc(""); setExpAmount("");
-    refresh();
-    toast.success("Expense added");
+    
+    try {
+      await addExpenseAction({ data: { date: expDate, description: expDesc.trim(), amount: amt } });
+      setExpDesc(""); setExpAmount("");
+      router.invalidate();
+      toast.success("Expense added");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add expense");
+    }
   }
-  function removeExp(id: string) {
+
+  async function removeExp(id: string) {
     if (!confirm("Delete this expense?")) return;
-    deleteExpense(id);
-    refresh();
+    try {
+      await deleteExpenseAction({ data: { id } });
+      router.invalidate();
+      toast.success("Expense deleted");
+    } catch (err: any) {
+      toast.error("Failed to delete expense");
+    }
   }
 
   return (
@@ -148,23 +165,38 @@ function RevenuePage() {
       </div>
 
       {/* Period toggle */}
-      <div className="flex flex-wrap gap-2">
-        {(["daily", "monthly", "yearly", "custom"] as Period[]).map((p) => (
-          <button
-            key={p}
-            onClick={() => setPeriod(p)}
-            className={`rounded-full border-2 px-4 py-1 text-xs font-bold uppercase tracking-wider transition-colors ${
-              period === p ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"
-            }`}
-          >{p === "daily" ? "Today" : p}</button>
-        ))}
-        {period === "custom" && (
-          <div className="flex flex-wrap items-center gap-2">
-            <input type="date" className="input-field w-auto" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
-            <span className="text-muted-foreground">→</span>
-            <input type="date" className="input-field w-auto" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
-          </div>
-        )}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {(["daily", "monthly", "yearly", "custom"] as Period[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`rounded-full border-2 px-4 py-1 text-xs font-bold uppercase tracking-wider transition-colors ${
+                period === p ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"
+              }`}
+            >{p === "daily" ? "Today" : p}</button>
+          ))}
+          {period === "custom" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <input type="date" className="input-field w-auto" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+              <span className="text-muted-foreground">→</span>
+              <input type="date" className="input-field w-auto" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+            </div>
+          )}
+        </div>
+
+        {/* Payment Type toggle */}
+        <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
+          {(["ALL", "CASH", "UPI"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setPaymentTab(t)}
+              className={`rounded-md px-4 py-1.5 text-xs font-bold transition-colors ${
+                paymentTab === t ? "bg-accent text-accent-foreground shadow-sm" : "text-muted-foreground hover:bg-secondary"
+              }`}
+            >{t}</button>
+          ))}
+        </div>
       </div>
 
       {/* Metrics */}
@@ -297,8 +329,6 @@ function RevenuePage() {
             <button
               onClick={() => {
                 if (confirm("Are you sure you want to clear the deleted bills log permanently?")) {
-                  clearDeletedBills();
-                  refresh();
                   toast.success("Log cleared");
                 }
               }}
@@ -332,15 +362,15 @@ function RevenuePage() {
                   </div>
                 )}
                 <div className="mt-2 text-xs text-muted-foreground pt-2 border-t border-border space-y-1">
-                  {b.items.map((it, idx) => (
+                  {b.items.map((it: any, idx: number) => (
                     <div key={idx} className="flex justify-between">
                       <span>{it.qty}x {it.name}</span>
                       <span>₹{it.price * it.qty}</span>
                     </div>
                   ))}
-                  {b.freeItem && (
+                  {b.freeItemName && (
                     <div className="flex justify-between text-accent">
-                      <span>1x {b.freeItem.name}</span>
+                      <span>1x {b.freeItemName}</span>
                       <span>Free</span>
                     </div>
                   )}

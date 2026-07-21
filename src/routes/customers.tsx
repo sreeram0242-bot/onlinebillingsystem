@@ -1,20 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { getCustomers, loadBills, formatDate, type CustomerSummary } from "@/lib/loyalty";
+import { useState } from "react";
+import { getCustomers, formatDate, type CustomerSummary } from "@/lib/loyalty";
 import { StreakDots } from "./index";
+import { getBillsAction } from "../data";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({ meta: [{ title: "Customers — Engineers Kitchen" }] }),
   component: CustomersPage,
+  loader: async () => await getBillsAction(),
 });
 
 function CustomersPage() {
-  const [customers, setCustomers] = useState<CustomerSummary[]>([]);
+  const bills = Route.useLoaderData();
+  const customers = getCustomers(bills as any);
   const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    setCustomers(getCustomers(loadBills()));
-  }, []);
 
   const filtered = customers.filter(
     (c) =>

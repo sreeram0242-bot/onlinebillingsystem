@@ -1,12 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { loadBills, loadMenu, formatDate, todayISO, type Bill } from "@/lib/loyalty";
+import { useMemo, useState } from "react";
+import { formatDate, todayISO } from "@/lib/loyalty";
+import { getBillsAction, getMenuAction } from "../data";
 
 type Period = "today" | "weekly" | "custom";
 
 export const Route = createFileRoute("/free")({
   head: () => ({ meta: [{ title: "Free Items Given — Engineers Kitchen" }] }),
   component: FreePage,
+  loader: async () => {
+    const [bills, menu] = await Promise.all([getBillsAction(), getMenuAction()]);
+    return { bills, menu };
+  }
 });
 
 function daysAgo(n: number): string {
@@ -16,12 +21,10 @@ function daysAgo(n: number): string {
 }
 
 function FreePage() {
-  const [bills, setBills] = useState<Bill[]>([]);
+  const { bills, menu } = Route.useLoaderData();
   const [period, setPeriod] = useState<Period>("today");
   const [from, setFrom] = useState(todayISO());
   const [to, setTo] = useState(todayISO());
-
-  useEffect(() => { setBills(loadBills()); }, []);
 
   const range = useMemo<[string, string]>(() => {
     const today = todayISO();
@@ -30,14 +33,14 @@ function FreePage() {
     return [from || today, to || today];
   }, [period, from, to]);
 
-  const menuPriceMap = useMemo(() => new Map(loadMenu().map((m) => [m.name, m.price])), []);
+  const menuPriceMap = useMemo(() => new Map((menu as any[]).map((m) => [m.name, m.price])), [menu]);
 
   const rows = useMemo(() => {
     const list: { date: string; name?: string; phone?: string; item: string; qty: number; value: number }[] = [];
-    for (const b of bills) {
+    for (const b of bills as any[]) {
       if (b.date < range[0] || b.date > range[1]) continue;
-      if (b.freeItem) list.push({ date: b.date, name: b.name, phone: b.phone, item: b.freeItem.name, qty: 1, value: b.freeItem.price });
-      for (const it of b.items) {
+      if (b.freeItemName) list.push({ date: b.date, name: b.name, phone: b.phone, item: b.freeItemName, qty: 1, value: b.freeItemPrice ?? 0 });
+      for (const it of b.items ?? []) {
         if (it.isFree) {
           const unit = menuPriceMap.get(it.name) ?? it.price ?? 0;
           list.push({ date: b.date, name: b.name, phone: b.phone, item: it.name, qty: it.qty, value: unit * it.qty });

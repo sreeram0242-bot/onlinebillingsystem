@@ -19,20 +19,15 @@ export const DEFAULT_CATEGORIES = [
   "Mojito",
 ];
 
-const CATEGORIES_KEY = "ek_categories_v1";
-const MENU_KEY = "ek_menu_v1";
-const BILLS_KEY = "ek_bills_v1";
-const DELETED_BILLS_KEY = "ek_deleted_bills_v1";
-const EXPENSES_KEY = "ek_expenses_v1";
-const SETTINGS_KEY = "ek_settings_v1";
-
 export const STREAK_TARGET = 6;
 
 export type AppSettings = {
   hotelName: string;
   requireCustomerDetails: boolean;
   streakOfferEnabled: boolean;
+  freeItemsEnabled: boolean;
   tablesEnabled: boolean;
+  printEnabled: boolean;
   tableNames: string[];
   gstPercentage: number;
 };
@@ -40,8 +35,10 @@ export type AppSettings = {
 export const DEFAULT_SETTINGS: AppSettings = {
   hotelName: "Engineers Kitchen",
   requireCustomerDetails: true,
-  streakOfferEnabled: true,
+  streakOfferEnabled: false,
+  freeItemsEnabled: false,
   tablesEnabled: false,
+  printEnabled: false,
   tableNames: ["T1", "T2", "T3", "T4"],
   gstPercentage: 5,
 };
@@ -67,13 +64,12 @@ export type Bill = {
   freeItem?: { name: string; price: number; costPrice?: number } | null;
   tableName?: string;
   orderNo?: number;
+  paymentMethod?: string; // CASH | GPAY | SPLIT
+  splitCash?: number;
+  splitGpay?: number;
 };
 
 export type DeletedBill = Bill & { deletedAt: string };
-
-function isBrowser() {
-  return typeof window !== "undefined";
-}
 
 export function categoryFromId(id: string): string {
   if (id.startsWith("mo")) return "Momos";
@@ -91,25 +87,6 @@ export function getCategoryOf(item: MenuItem): string {
   // Only apply legacy ID-based categorization to original seed data (e.g., s1, b2, mo3)
   if (/^[a-z]+[0-9]+$/.test(item.id)) return categoryFromId(item.id);
   return "Other";
-}
-
-export function loadCategories(): string[] {
-  if (!isBrowser()) return DEFAULT_CATEGORIES;
-  try {
-    const raw = localStorage.getItem(CATEGORIES_KEY);
-    if (!raw) {
-      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(DEFAULT_CATEGORIES));
-      return DEFAULT_CATEGORIES;
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : DEFAULT_CATEGORIES;
-  } catch {
-    return DEFAULT_CATEGORIES;
-  }
-}
-export function saveCategories(cats: string[]) {
-  if (!isBrowser()) return;
-  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(cats));
 }
 
 export const DEFAULT_MENU: MenuItem[] = [
@@ -178,129 +155,6 @@ export const DEFAULT_MENU: MenuItem[] = [
   { id: "mj5", name: "Peach mojito", price: 79 },
   { id: "mj6", name: "Lemon soda", price: 49 },
 ];
-
-export function loadMenu(): MenuItem[] {
-  if (!isBrowser()) return DEFAULT_MENU;
-  try {
-    const raw = localStorage.getItem(MENU_KEY);
-    if (!raw) {
-      localStorage.setItem(MENU_KEY, JSON.stringify(DEFAULT_MENU));
-      return DEFAULT_MENU;
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : DEFAULT_MENU;
-  } catch {
-    return DEFAULT_MENU;
-  }
-}
-export function saveMenu(items: MenuItem[]) {
-  if (!isBrowser()) return;
-  localStorage.setItem(MENU_KEY, JSON.stringify(items));
-}
-
-export function loadBills(): Bill[] {
-  if (!isBrowser()) return [];
-  try {
-    const raw = localStorage.getItem(BILLS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-export function saveBills(bills: Bill[]) {
-  if (!isBrowser()) return;
-  localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
-}
-export function addBill(bill: Bill) {
-  const all = loadBills();
-  all.push(bill);
-  saveBills(all);
-}
-
-export function updateBill(id: string, updated: Bill) {
-  const all = loadBills();
-  const idx = all.findIndex((b) => b.id === id);
-  if (idx !== -1) {
-    all[idx] = updated;
-    saveBills(all);
-  }
-}
-
-export function loadDeletedBills(): DeletedBill[] {
-  if (!isBrowser()) return [];
-  try {
-    const raw = localStorage.getItem(DELETED_BILLS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-export function clearDeletedBills() {
-  if (!isBrowser()) return;
-  localStorage.removeItem(DELETED_BILLS_KEY);
-}
-
-export function deleteBill(id: string) {
-  const all = loadBills();
-  const billToDelete = all.find((b) => b.id === id);
-  if (billToDelete) {
-    const deletedList = loadDeletedBills();
-    deletedList.push({ ...billToDelete, deletedAt: new Date().toISOString() });
-    localStorage.setItem(DELETED_BILLS_KEY, JSON.stringify(deletedList));
-  }
-  saveBills(all.filter((b) => b.id !== id));
-}
-
-export function loadExpenses(): Expense[] {
-  if (!isBrowser()) return [];
-  try {
-    const raw = localStorage.getItem(EXPENSES_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-export function saveExpenses(exps: Expense[]) {
-  if (!isBrowser()) return;
-  localStorage.setItem(EXPENSES_KEY, JSON.stringify(exps));
-}
-export function addExpense(e: Expense) {
-  const all = loadExpenses();
-  all.push(e);
-  saveExpenses(all);
-}
-export function deleteExpense(id: string) {
-  saveExpenses(loadExpenses().filter((e) => e.id !== id));
-}
-
-export function loadSettings(): AppSettings {
-  if (!isBrowser()) return DEFAULT_SETTINGS;
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(DEFAULT_SETTINGS));
-      return DEFAULT_SETTINGS;
-    }
-    const parsed = JSON.parse(raw);
-    return (parsed && typeof parsed === "object") ? { ...DEFAULT_SETTINGS, ...parsed } : DEFAULT_SETTINGS;
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
-export function saveSettings(s: AppSettings) {
-  if (!isBrowser()) return;
-  // enforce dependency: streak requires customer details
-  const normalized: AppSettings = {
-    ...s,
-    streakOfferEnabled: s.requireCustomerDetails ? s.streakOfferEnabled : false,
-  };
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(normalized));
-  window.dispatchEvent(new CustomEvent("ek-settings-change"));
-}
 
 export function todayISO(): string {
   const d = new Date();
@@ -415,32 +269,3 @@ export function nextOrderNumberForDate(bills: Bill[], date: string): number {
   return Math.max(...dayBills.map((b) => b.orderNo || 0)) + 1;
 }
 
-// Backup / restore
-const BACKUP_KEYS = [
-  CATEGORIES_KEY,
-  MENU_KEY,
-  BILLS_KEY,
-  DELETED_BILLS_KEY,
-  EXPENSES_KEY,
-  SETTINGS_KEY,
-] as const;
-
-export function exportBackup(): string {
-  const data: Record<string, unknown> = {};
-  for (const k of BACKUP_KEYS) {
-    const raw = localStorage.getItem(k);
-    if (raw) data[k] = JSON.parse(raw);
-  }
-  return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), data }, null, 2);
-}
-
-export function importBackup(json: string) {
-  const parsed = JSON.parse(json);
-  const data = parsed?.data ?? parsed;
-  for (const k of BACKUP_KEYS) {
-    if (data[k] !== undefined) {
-      localStorage.setItem(k, JSON.stringify(data[k]));
-    }
-  }
-  window.dispatchEvent(new CustomEvent("ek-settings-change"));
-}

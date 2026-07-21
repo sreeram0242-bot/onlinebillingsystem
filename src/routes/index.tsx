@@ -1,44 +1,51 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
   getCustomers,
-  loadBills,
   formatDate,
-  loadSettings,
-  saveSettings,
-  exportBackup,
-  importBackup,
   type CustomerSummary,
   type AppSettings,
 } from "@/lib/loyalty";
+import { getBillsAction, getSettingsAction, saveSettingsAction } from "../data";
+import { connectPrinter, disconnectPrinter, isPrinterConnected } from "@/lib/thermalPrint";
+
+import { createServerFn } from "@tanstack/react-start";
+
+const getActiveBroadcasts = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { db } = await import("../db");
+    return await db.broadcast.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: "desc" }
+    });
+  });
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
+  loader: async () => {
+    const [broadcasts, bills, settings] = await Promise.all([
+      getActiveBroadcasts(),
+      getBillsAction(),
+      getSettingsAction()
+    ]);
+    return { broadcasts, bills, settings };
+  },
 });
 
 function Dashboard() {
-  const [customers, setCustomers] = useState<CustomerSummary[]>([]);
-  const [totalBills, setTotalBills] = useState(0);
-  const [totalRevenue, setTotalRevenue] = useState(0);
+  const { broadcasts, bills, settings } = Route.useLoaderData();
   const [query, setQuery] = useState("");
-  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [dismissed, setDismissed] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("dismissedBroadcasts") || "[]"); } 
+    catch { return []; }
+  });
+  const router = useRouter();
 
-  function refresh() {
-    const bills = loadBills();
-    setCustomers(getCustomers(bills));
-    setTotalBills(bills.length);
-    setTotalRevenue(bills.reduce((s, b) => s + b.total, 0));
-    setSettings(loadSettings());
-  }
-
-  useEffect(() => {
-    refresh();
-    const h = () => refresh();
-    window.addEventListener("ek-settings-change", h);
-    return () => window.removeEventListener("ek-settings-change", h);
-  }, []);
+  const customers = getCustomers(bills as any);
+  const totalBills = bills.length;
+  const totalRevenue = bills.reduce((s, b) => s + b.total, 0);
 
   const filtered = customers.filter(
     (c) => c.name.toLowerCase().includes(query.toLowerCase()) || c.phone.includes(query),
@@ -46,6 +53,14 @@ function Dashboard() {
   const totalCustomers = customers.length;
   const eligibleCount = customers.filter((c) => c.eligibleToday).length;
   const streakOn = settings?.streakOfferEnabled ?? true;
+
+  const visibleBroadcasts = broadcasts.filter(b => !dismissed.includes(b.id));
+
+  function dismissBroadcast(id: string) {
+    const next = [...dismissed, id];
+    setDismissed(next);
+    localStorage.setItem("dismissedBroadcasts", JSON.stringify(next));
+  }
 
   return (
     <div className="space-y-8">
@@ -58,10 +73,26 @@ function Dashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link to="/bills" className="btn-ghost">Recent Bills</Link>
-          <button onClick={() => setSettingsOpen(true)} className="btn-ghost" aria-label="Settings">⚙</button>
+          <button onClick={() => setSettingsOpen(true)} className="btn-ghost" aria-label="Settings">⚙ Settings</button>
           <Link to="/new-bill" className="btn-primary">+ New Bill</Link>
         </div>
       </header>
+
+      {visibleBroadcasts.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {visibleBroadcasts.map((b) => (
+            <div key={b.id} className="rounded-lg bg-accent/10 border border-accent/20 p-4 flex gap-3 items-start">
+              <span className="text-xl">📢</span>
+              <div className="flex-1 text-sm font-medium text-accent mt-0.5">
+                {b.message}
+              </div>
+              <button onClick={() => dismissBroadcast(b.id)} className="text-accent hover:text-accent-foreground p-1 text-lg leading-none" aria-label="Dismiss">
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <section className={`grid grid-cols-2 gap-3 ${streakOn ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
         <StatCard label="Customers" value={totalCustomers} />
@@ -98,9 +129,9 @@ function Dashboard() {
 
       {settingsOpen && settings && (
         <SettingsModal
-          initial={settings}
+          initial={settings as any}
           onClose={() => setSettingsOpen(false)}
-          onSaved={refresh}
+          onSaved={() => router.invalidate()}
         />
       )}
     </div>
@@ -168,11 +199,29 @@ function SettingsModal({
 }) {
   const [s, setS] = useState<AppSettings>(initial);
   const [newTable, setNewTable] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [printerStatus, setPrinterStatus] = useState(isPrinterConnected());
 
-  function persist(next: AppSettings) {
+  async function handleConnectPrinter() {
+    try {
+      if (printerStatus) {
+        await disconnectPrinter();
+        setPrinterStatus(false);
+        toast.info("Printer disconnected");
+      } else {
+        const success = await connectPrinter();
+        if (success) {
+          setPrinterStatus(true);
+          toast.success("Printer connected successfully");
+        }
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to connect to printer");
+    }
+  }
+
+  async function persist(next: AppSettings) {
     setS(next);
-    saveSettings(next);
+    await saveSettingsAction({ data: next });
     onSaved();
   }
 
@@ -186,30 +235,6 @@ function SettingsModal({
 
   function removeTable(t: string) {
     persist({ ...s, tableNames: s.tableNames.filter((x) => x !== t) });
-  }
-
-  function download() {
-    const json = exportBackup();
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `engineers-kitchen-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Backup downloaded");
-  }
-
-  function restore(file: File) {
-    file.text().then((text) => {
-      try {
-        importBackup(text);
-        toast.success("Backup restored");
-        onSaved();
-      } catch {
-        toast.error("Invalid backup file");
-      }
-    });
   }
 
   return (
@@ -257,11 +282,35 @@ function SettingsModal({
             onChange={(v) => persist({ ...s, streakOfferEnabled: v })}
           />
           <Toggle
+            label="Free items button"
+            hint="Allow marking items as free while billing"
+            value={s.freeItemsEnabled}
+            onChange={(v) => persist({ ...s, freeItemsEnabled: v })}
+          />
+          <Toggle
             label="Custom tables"
             hint="Assign a table per bill"
             value={s.tablesEnabled}
             onChange={(v) => persist({ ...s, tablesEnabled: v })}
           />
+          <div className="space-y-2">
+            <Toggle
+              label="Auto-Print Bills"
+              hint="Requires USB thermal printer (ESC/POS)"
+              value={s.printEnabled}
+              onChange={(v) => persist({ ...s, printEnabled: v })}
+            />
+            {s.printEnabled && (
+              <div className="flex items-center gap-3 pl-[52px]">
+                <button
+                  onClick={handleConnectPrinter}
+                  className={`btn-ghost border-2 text-xs py-1 px-3 ${printerStatus ? 'border-success text-success bg-success/10' : 'border-primary/20 hover:border-primary'}`}
+                >
+                  {printerStatus ? "✓ Printer Connected" : "🔌 Connect Printer"}
+                </button>
+              </div>
+            )}
+          </div>
 
           {s.tablesEnabled && (
             <div className="rounded-lg border border-border bg-secondary/50 p-3">
@@ -287,24 +336,6 @@ function SettingsModal({
             </div>
           )}
 
-          <div className="rounded-lg border border-border bg-secondary/50 p-3">
-            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Data</div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button onClick={download} className="btn-ghost">⬇️ Export Backup</button>
-              <button onClick={() => fileRef.current?.click()} className="btn-ghost">⬆️ Restore Backup</button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="application/json"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) restore(f);
-                  e.target.value = "";
-                }}
-              />
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -1,13 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { deleteBill, formatDate, loadBills, todayISO, type Bill } from "@/lib/loyalty";
+import { formatDate, todayISO } from "@/lib/loyalty";
+import { getBillsAction, deleteBillAction } from "../data";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type Range = "all" | "today" | "week" | "custom";
 
 export const Route = createFileRoute("/bills")({
   head: () => ({ meta: [{ title: "Recent Bills — Engineers Kitchen" }] }),
   component: BillsPage,
+  loader: async () => await getBillsAction(),
 });
 
 function daysAgo(n: number): string {
@@ -17,14 +21,13 @@ function daysAgo(n: number): string {
 }
 
 function BillsPage() {
-  const [bills, setBills] = useState<Bill[]>([]);
+  const bills = Route.useLoaderData();
+  const router = useRouter();
   const [range, setRange] = useState<Range>("all");
   const [from, setFrom] = useState(todayISO());
   const [to, setTo] = useState(todayISO());
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  function refresh() { setBills(loadBills()); }
-  useEffect(() => { refresh(); }, []);
   function toggle(id: string) { setExpanded((p) => ({ ...p, [id]: !p[id] })); }
 
   const filtered = useMemo(() => {
@@ -43,18 +46,78 @@ function BillsPage() {
     });
   }, [bills, range, from, to]);
 
-  function onDelete(id: string) {
+  async function onDelete(id: string) {
     if (!confirm("Delete this bill?")) return;
-    deleteBill(id);
-    refresh();
-    toast.success("Bill deleted");
+    try {
+      await deleteBillAction({ data: { id } });
+      router.invalidate();
+      toast.success("Bill deleted");
+    } catch (e) {
+      toast.error("Failed to delete bill");
+    }
+  }
+
+  function generatePDF() {
+    if (filtered.length === 0) {
+      toast.error("No bills to export");
+      return;
+    }
+    const doc = new jsPDF();
+    const title = `Bills Report (${range === "custom" ? `${from} to ${to}` : range})`;
+    doc.text(title, 14, 15);
+
+    let totalCash = 0;
+    let totalUPI = 0;
+    let totalAmt = 0;
+
+    const tableData = filtered.map((b) => {
+      let cash = 0, upi = 0;
+      if (b.paymentMethod === "CASH") cash = b.total;
+      else if (b.paymentMethod === "GPAY") upi = b.total;
+      else if (b.paymentMethod === "SPLIT") {
+        cash = b.splitCash || 0;
+        upi = b.splitGpay || 0;
+      } else cash = b.total;
+
+      totalCash += cash;
+      totalUPI += upi;
+      totalAmt += b.total;
+
+      const itemsStr = b.items.map((i: any) => `${i.name}x${i.qty}`).join(", ");
+      const customer = b.name || "Walk-in";
+
+      return [
+        b.orderNo ?? "—",
+        b.date,
+        customer,
+        itemsStr,
+        b.paymentMethod || "CASH",
+        `Rs. ${b.total}`,
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 20,
+      head: [["Order", "Date", "Customer", "Items", "Payment", "Total"]],
+      body: tableData,
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY || 20;
+    doc.text(`Total Cash: Rs. ${totalCash}`, 14, finalY + 10);
+    doc.text(`Total UPI: Rs. ${totalUPI}`, 14, finalY + 18);
+    doc.text(`Grand Total: Rs. ${totalAmt}`, 14, finalY + 26);
+
+    doc.save(`Bills_Report_${todayISO()}.pdf`);
   }
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-3xl text-primary">Recent Bills</h1>
-        <Link to="/new-bill" className="btn-accent">+ New Bill</Link>
+        <div className="flex items-center gap-2">
+          <button onClick={generatePDF} className="btn-ghost border-2 border-primary/20 bg-card">⬇ Download PDF</button>
+          <Link to="/new-bill" className="btn-accent">+ New Bill</Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -168,13 +231,13 @@ function BillsPage() {
                                 <span className="shrink-0 tabular-nums">₹{it.price * it.qty}</span>
                               </div>
                             ))}
-                            {b.freeItem && (
+                            {(b as any).freeItemName && (
                               <div className="flex items-center justify-between gap-2">
                                 <span className="min-w-0 truncate">
-                                  {b.freeItem.name} <span className="text-muted-foreground">× 1</span>
+                                  {(b as any).freeItemName} <span className="text-muted-foreground">× 1</span>
                                   <span className="ml-1 rounded bg-accent/20 px-1 text-[10px] font-bold text-accent">STREAK FREE</span>
                                 </span>
-                                <span className="shrink-0 tabular-nums line-through opacity-50">₹{b.freeItem.price}</span>
+                                <span className="shrink-0 tabular-nums line-through opacity-50">₹{(b as any).freeItemPrice}</span>
                               </div>
                             )}
                             {b.phone && (

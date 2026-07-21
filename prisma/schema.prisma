@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "cockroachdb"
+}
+
+enum Role {
+  SUPER_ADMIN
+  HOTEL_OWNER
+}
+
+enum Status {
+  PENDING
+  ACTIVE
+  PAUSED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(HOTEL_OWNER)
+  status       Status   @default(PENDING)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  hotel        Hotel?   @relation(fields: [hotelId], references: [id])
+  hotelId      String?
+}
+
+model Hotel {
+  id          String   @id @default(uuid())
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  settings    Settings?
+  users       User[]
+  menuItems   MenuItem[]
+  bills       Bill[]
+  expenses    Expense[]
+}
+
+model Settings {
+  id                     String  @id @default(uuid())
+  hotelId                String  @unique
+  hotel                  Hotel   @relation(fields: [hotelId], references: [id])
+  requireCustomerDetails Boolean @default(true)
+  streakOfferEnabled     Boolean @default(false)
+  freeItemsEnabled       Boolean @default(false)
+  tablesEnabled          Boolean @default(false)
+  printEnabled           Boolean @default(false)
+  tableNames             String  @default("[]") // JSON string array
+  categoryNames          String  @default("[]") // JSON string array
+  gstPercentage          Float   @default(5.0)
+  hotelName              String  @default("")
+}
+
+model MenuItem {
+  id        String   @id @default(uuid())
+  hotelId   String
+  hotel     Hotel    @relation(fields: [hotelId], references: [id])
+  name      String
+  price     Float
+  category  String?
+  costPrice Float?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Bill {
+  id            String   @id @default(uuid())
+  hotelId       String
+  hotel         Hotel    @relation(fields: [hotelId], references: [id])
+  phone         String
+  name          String
+  date          String   // YYYY-MM-DD
+  subtotal      Float?
+  gstAmount     Float?
+  gstPercentage Float?
+  total         Float
+  tableName     String?
+  orderNo       Int?
+  
+  items         BillItem[]
+  freeItemName  String?
+  freeItemPrice Float?
+  freeItemCost  Float?
+  paymentMethod String   @default("CASH")  // CASH | GPAY | SPLIT
+  splitCash     Float?
+  splitGpay     Float?
+  
+  isDeleted     Boolean  @default(false)
+  deletedAt     DateTime?
+  
+  createdAt     DateTime @default(now())
+}
+
+model BillItem {
+  id        String  @id @default(uuid())
+  billId    String
+  bill      Bill    @relation(fields: [billId], references: [id], onDelete: Cascade)
+  name      String
+  price     Float
+  qty       Int
+  costPrice Float?
+  isFree    Boolean @default(false)
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  hotelId     String
+  hotel       Hotel    @relation(fields: [hotelId], references: [id])
+  date        String   // YYYY-MM-DD
+  description String
+  amount      Float
+  
+  createdAt   DateTime @default(now())
+}
+
+model Broadcast {
+  id        String   @id @default(uuid())
+  message   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GlobalSettings {
+  id                 String   @id @default("global")
+  allowRegistrations Boolean  @default(true)
+  defaultGst         Float    @default(5.0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}

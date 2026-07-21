@@ -13,10 +13,18 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BillsRouteImport } from './routes/bills'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as FreeRouteImport } from './routes/free'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as MenuRouteImport } from './routes/menu'
 import { Route as NewBillRouteImport } from './routes/new-bill'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as RevenueRouteImport } from './routes/revenue'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminBroadcastsRouteImport } from './routes/admin/broadcasts'
+import { Route as AdminHotelsRouteImport } from './routes/admin/hotels'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as CustomerPhoneRouteImport } from './routes/customer.$phone'
+import { Route as AdminHotelsHotelIdRouteImport } from './routes/admin/hotels/$hotelId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -38,6 +46,11 @@ const FreeRoute = FreeRouteImport.update({
   path: '/free',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MenuRoute = MenuRouteImport.update({
   id: '/menu',
   path: '/menu',
@@ -48,9 +61,39 @@ const NewBillRoute = NewBillRouteImport.update({
   path: '/new-bill',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RevenueRoute = RevenueRouteImport.update({
   id: '/revenue',
   path: '/revenue',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminBroadcastsRoute = AdminBroadcastsRouteImport.update({
+  id: '/admin/broadcasts',
+  path: '/admin/broadcasts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminHotelsRoute = AdminHotelsRouteImport.update({
+  id: '/admin/hotels',
+  path: '/admin/hotels',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomerPhoneRoute = CustomerPhoneRouteImport.update({
@@ -58,26 +101,47 @@ const CustomerPhoneRoute = CustomerPhoneRouteImport.update({
   path: '/customer/$phone',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminHotelsHotelIdRoute = AdminHotelsHotelIdRouteImport.update({
+  id: '/$hotelId',
+  path: '/$hotelId',
+  getParentRoute: () => AdminHotelsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/bills': typeof BillsRoute
   '/customers': typeof CustomersRoute
   '/free': typeof FreeRoute
+  '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
   '/new-bill': typeof NewBillRoute
+  '/register': typeof RegisterRoute
   '/revenue': typeof RevenueRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/hotels': typeof AdminHotelsRouteWithChildren
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/customer/$phone': typeof CustomerPhoneRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/hotels/$hotelId': typeof AdminHotelsHotelIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/bills': typeof BillsRoute
   '/customers': typeof CustomersRoute
   '/free': typeof FreeRoute
+  '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
   '/new-bill': typeof NewBillRoute
+  '/register': typeof RegisterRoute
   '/revenue': typeof RevenueRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/hotels': typeof AdminHotelsRouteWithChildren
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/customer/$phone': typeof CustomerPhoneRoute
+  '/admin': typeof AdminIndexRoute
+  '/admin/hotels/$hotelId': typeof AdminHotelsHotelIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -85,10 +149,18 @@ export interface FileRoutesById {
   '/bills': typeof BillsRoute
   '/customers': typeof CustomersRoute
   '/free': typeof FreeRoute
+  '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
   '/new-bill': typeof NewBillRoute
+  '/register': typeof RegisterRoute
   '/revenue': typeof RevenueRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/hotels': typeof AdminHotelsRouteWithChildren
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/customer/$phone': typeof CustomerPhoneRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/hotels/$hotelId': typeof AdminHotelsHotelIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -97,30 +169,54 @@ export interface FileRouteTypes {
     | '/bills'
     | '/customers'
     | '/free'
+    | '/login'
     | '/menu'
     | '/new-bill'
+    | '/register'
     | '/revenue'
+    | '/admin/broadcasts'
+    | '/admin/hotels'
+    | '/admin/settings'
+    | '/admin/users'
     | '/customer/$phone'
+    | '/admin/'
+    | '/admin/hotels/$hotelId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/bills'
     | '/customers'
     | '/free'
+    | '/login'
     | '/menu'
     | '/new-bill'
+    | '/register'
     | '/revenue'
+    | '/admin/broadcasts'
+    | '/admin/hotels'
+    | '/admin/settings'
+    | '/admin/users'
     | '/customer/$phone'
+    | '/admin'
+    | '/admin/hotels/$hotelId'
   id:
     | '__root__'
     | '/'
     | '/bills'
     | '/customers'
     | '/free'
+    | '/login'
     | '/menu'
     | '/new-bill'
+    | '/register'
     | '/revenue'
+    | '/admin/broadcasts'
+    | '/admin/hotels'
+    | '/admin/settings'
+    | '/admin/users'
     | '/customer/$phone'
+    | '/admin/'
+    | '/admin/hotels/$hotelId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -128,10 +224,17 @@ export interface RootRouteChildren {
   BillsRoute: typeof BillsRoute
   CustomersRoute: typeof CustomersRoute
   FreeRoute: typeof FreeRoute
+  LoginRoute: typeof LoginRoute
   MenuRoute: typeof MenuRoute
   NewBillRoute: typeof NewBillRoute
+  RegisterRoute: typeof RegisterRoute
   RevenueRoute: typeof RevenueRoute
+  AdminBroadcastsRoute: typeof AdminBroadcastsRoute
+  AdminHotelsRoute: typeof AdminHotelsRouteWithChildren
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
   CustomerPhoneRoute: typeof CustomerPhoneRoute
+  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -164,6 +267,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FreeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/menu': {
       id: '/menu'
       path: '/menu'
@@ -178,11 +288,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NewBillRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/revenue': {
       id: '/revenue'
       path: '/revenue'
       fullPath: '/revenue'
       preLoaderRoute: typeof RevenueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/broadcasts': {
+      id: '/admin/broadcasts'
+      path: '/admin/broadcasts'
+      fullPath: '/admin/broadcasts'
+      preLoaderRoute: typeof AdminBroadcastsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/hotels': {
+      id: '/admin/hotels'
+      path: '/admin/hotels'
+      fullPath: '/admin/hotels'
+      preLoaderRoute: typeof AdminHotelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customer/$phone': {
@@ -192,18 +344,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomerPhoneRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/hotels/$hotelId': {
+      id: '/admin/hotels/$hotelId'
+      path: '/$hotelId'
+      fullPath: '/admin/hotels/$hotelId'
+      preLoaderRoute: typeof AdminHotelsHotelIdRouteImport
+      parentRoute: typeof AdminHotelsRoute
+    }
   }
 }
+
+interface AdminHotelsRouteChildren {
+  AdminHotelsHotelIdRoute: typeof AdminHotelsHotelIdRoute
+}
+
+const AdminHotelsRouteChildren: AdminHotelsRouteChildren = {
+  AdminHotelsHotelIdRoute: AdminHotelsHotelIdRoute,
+}
+
+const AdminHotelsRouteWithChildren = AdminHotelsRoute._addFileChildren(
+  AdminHotelsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BillsRoute: BillsRoute,
   CustomersRoute: CustomersRoute,
   FreeRoute: FreeRoute,
+  LoginRoute: LoginRoute,
   MenuRoute: MenuRoute,
   NewBillRoute: NewBillRoute,
+  RegisterRoute: RegisterRoute,
   RevenueRoute: RevenueRoute,
+  AdminBroadcastsRoute: AdminBroadcastsRoute,
+  AdminHotelsRoute: AdminHotelsRouteWithChildren,
+  AdminSettingsRoute: AdminSettingsRoute,
+  AdminUsersRoute: AdminUsersRoute,
   CustomerPhoneRoute: CustomerPhoneRoute,
+  AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

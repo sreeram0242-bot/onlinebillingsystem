@@ -4,15 +4,16 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
   HeadContent,
   Scripts,
+  redirect,
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { loadSettings } from "../lib/loyalty";
 
 function NotFoundComponent() {
   return (
@@ -49,7 +50,36 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
+import { getSessionAction, logoutAction } from "../actions";
+import { createServerFn } from "@tanstack/react-start";
+
+const getHotelNameAction = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { getUserFromSession } = await import("../auth");
+    const user = getUserFromSession();
+    if (!user || !user.hotelId) return "Engineers Kitchen";
+    const { db } = await import("../db");
+    const hotel = await db.hotel.findUnique({ where: { id: user.hotelId } });
+    return hotel?.name || "Engineers Kitchen";
+  });
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  beforeLoad: async ({ location }) => {
+    if (location.pathname === "/login" || location.pathname === "/register") {
+      return {};
+    }
+    const user = await getSessionAction();
+    if (!user) {
+      throw redirect({ to: "/login" });
+    }
+    if (user.role === "SUPER_ADMIN" && !location.pathname.startsWith("/admin")) {
+      throw redirect({ to: "/admin" });
+    }
+    if (user.role === "HOTEL_OWNER" && location.pathname.startsWith("/admin")) {
+      throw redirect({ to: "/" });
+    }
+    return { user };
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -76,6 +106,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
+  loader: async ({ context }) => {
+    try {
+      const hotelName = await getHotelNameAction();
+      return { hotelName: hotelName || "Engineers Kitchen" };
+    } catch {
+      return { hotelName: "Engineers Kitchen" };
+    }
+  },
 });
 
 function RootShell({ children }: { children: ReactNode }) {
@@ -102,7 +140,7 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-const NAV_ITEMS = [
+const NAV_ITEMS_HOTEL = [
   { to: "/", label: "Dashboard", icon: "◐" },
   { to: "/revenue", label: "Revenue", icon: "₹" },
   { to: "/new-bill", label: "New Bill", icon: "＋" },
@@ -110,18 +148,25 @@ const NAV_ITEMS = [
   { to: "/menu", label: "Menu", icon: "☰" },
 ] as const;
 
+const NAV_ITEMS_ADMIN = [
+  { to: "/admin", label: "Dashboard", icon: "◐" },
+  { to: "/admin/broadcasts", label: "Broadcasts", icon: "📢" },
+  { to: "/admin/hotels", label: "Hotels", icon: "🏢" },
+  { to: "/admin/users", label: "Users", icon: "👥" },
+  { to: "/admin/settings", label: "Settings", icon: "⚙" },
+] as const;
+
 function useHotelName() {
-  const [name, setName] = useState("Engineers Kitchen");
-  useEffect(() => {
-    const sync = () => setName(loadSettings().hotelName || "Engineers Kitchen");
-    sync();
-    window.addEventListener("ek-settings-change", sync);
-    return () => window.removeEventListener("ek-settings-change", sync);
-  }, []);
-  return name;
+  try {
+    const { hotelName } = Route.useLoaderData() as { hotelName: string };
+    return hotelName || "Engineers Kitchen";
+  } catch {
+    return "Engineers Kitchen";
+  }
 }
 
-function Sidebar({ onNavigate, hotelName }: { onNavigate?: () => void; hotelName: string }) {
+function Sidebar({ onNavigate, hotelName, isAdmin }: { onNavigate?: () => void; hotelName: string; isAdmin: boolean }) {
+  const items = isAdmin ? NAV_ITEMS_ADMIN : NAV_ITEMS_HOTEL;
   return (
     <aside className="flex h-full w-64 flex-col border-r border-border bg-card">
       <div className="border-b border-border px-6 py-5">
@@ -131,14 +176,14 @@ function Sidebar({ onNavigate, hotelName }: { onNavigate?: () => void; hotelName
         </div>
       </div>
       <nav className="flex-1 space-y-0.5 p-3">
-        {NAV_ITEMS.map((item) => (
+        {items.map((item) => (
           <Link
             key={item.to}
             to={item.to}
             onClick={onNavigate}
             className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
             activeProps={{ className: "bg-primary text-primary-foreground hover:bg-primary" }}
-            activeOptions={{ exact: item.to === "/" }}
+            activeOptions={{ exact: item.to === "/" || item.to === "/admin" }}
           >
             <span className="text-base opacity-70">{item.icon}</span>
             {item.label}
@@ -146,6 +191,16 @@ function Sidebar({ onNavigate, hotelName }: { onNavigate?: () => void; hotelName
         ))}
       </nav>
       <div className="border-t border-border px-6 py-4 text-[11px] leading-relaxed text-muted-foreground">
+        <button
+          onClick={async () => {
+            await logoutAction();
+            window.location.href = "/login";
+          }}
+          className="btn-ghost w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive mb-4"
+        >
+          <span className="text-base opacity-70">⎋</span>
+          Sign Out
+        </button>
         <div className="font-medium text-foreground">Help</div>
         <div className="mt-2 space-y-1">
           <div>Sreeram (Developer)</div>
@@ -160,16 +215,17 @@ function Sidebar({ onNavigate, hotelName }: { onNavigate?: () => void; hotelName
   );
 }
 
-function BottomNav() {
+function BottomNav({ isAdmin }: { isAdmin: boolean }) {
+  const items = isAdmin ? NAV_ITEMS_ADMIN : NAV_ITEMS_HOTEL;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card md:hidden">
-      {NAV_ITEMS.map((item) => (
+      {items.map((item) => (
         <Link
           key={item.to}
           to={item.to}
           className="flex flex-col items-center justify-center gap-0.5 pt-3 pb-2 text-[10px] font-medium text-muted-foreground"
           activeProps={{ className: "text-primary" }}
-          activeOptions={{ exact: item.to === "/" }}
+          activeOptions={{ exact: item.to === "/" || item.to === "/admin" }}
         >
           <span className="text-lg">{item.icon}</span>
           {item.label}
@@ -188,36 +244,43 @@ function useDarkMode() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const location = useLocation();
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
+  const isAdmin = location.pathname.startsWith("/admin");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [desktopOpen, setDesktopOpen] = useState(true);
+  const [desktopOpen, setDesktopOpen] = useState(!isAuthPage);
   const hotelName = useHotelName();
   useDarkMode();
 
   return (
     <QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen bg-background">
-        {desktopOpen && (
+        {desktopOpen && !isAuthPage && (
           <div className="hidden md:block">
-            <Sidebar onNavigate={() => setDesktopOpen(false)} hotelName={hotelName} />
+            <Sidebar onNavigate={() => setDesktopOpen(false)} hotelName={hotelName} isAdmin={isAdmin} />
           </div>
         )}
 
-        {mobileOpen && (
+        {mobileOpen && !isAuthPage && (
           <div className="fixed inset-0 z-40 md:hidden">
             <div className="absolute inset-0 bg-foreground/40" onClick={() => setMobileOpen(false)} />
             <div className="absolute inset-y-0 left-0">
-              <Sidebar onNavigate={() => setMobileOpen(false)} hotelName={hotelName} />
+              <Sidebar onNavigate={() => setMobileOpen(false)} hotelName={hotelName} isAdmin={isAdmin} />
             </div>
           </div>
         )}
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-card px-4 py-3">
-            <button
-              onClick={() => { setMobileOpen((v) => !v); setDesktopOpen((v) => !v); }}
-              className="btn-ghost !py-1.5"
-              aria-label="Toggle sidebar"
-            ><span aria-hidden>☰</span></button>
+            {isAuthPage ? (
+              <div className="w-8" />
+            ) : (
+              <button
+                onClick={() => { setMobileOpen((v) => !v); setDesktopOpen((v) => !v); }}
+                className="btn-ghost !py-1.5"
+                aria-label="Toggle sidebar"
+              ><span aria-hidden>☰</span></button>
+            )}
             <div className="font-display text-lg text-primary">{hotelName}</div>
             <div className="w-8" />
           </header>
@@ -230,7 +293,7 @@ function RootComponent() {
           </main>
 
         </div>
-        <BottomNav />
+        {!isAuthPage && <BottomNav isAdmin={isAdmin} />}
       </div>
       <Toaster position="top-center" richColors />
     </QueryClientProvider>

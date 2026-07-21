@@ -1,40 +1,46 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   computeLoyalty,
-  deleteBill,
   formatDate,
-  loadBills,
   STREAK_TARGET,
   type Bill,
 } from "@/lib/loyalty";
 import { StreakDots } from "./index";
+import { getBillsAction, deleteBillAction } from "../data";
 
 export const Route = createFileRoute("/customer/$phone")({
   head: () => ({ meta: [{ title: "Customer — Engineers Kitchen" }] }),
   component: CustomerDetail,
+  loader: async () => await getBillsAction(),
 });
 
 function CustomerDetail() {
   const { phone } = Route.useParams();
+  const allBills = Route.useLoaderData();
+  const router = useRouter();
   const navigate = useNavigate();
-  const [bills, setBills] = useState<Bill[]>([]);
   const [dateFilter, setDateFilter] = useState("");
 
-  function refresh() { setBills(loadBills().filter((b) => b.phone === phone)); }
-  useEffect(() => { refresh(); }, [phone]);
+  const bills = useMemo(() => allBills.filter((b) => b.phone === phone) as any, [allBills, phone]);
 
   const customerName = bills[0]?.name ?? "Unknown";
-  const loyalty = useMemo(() => computeLoyalty(loadBills(), phone), [bills, phone]);
-  const totalSpent = bills.reduce((s, b) => s + b.total, 0);
+  const loyalty = useMemo(() => computeLoyalty(allBills as any, phone), [allBills, phone]);
+  const totalSpent = bills.reduce((s: number, b: any) => s + b.total, 0);
   const filteredBills = [...bills]
     .filter((b) => (dateFilter ? b.date === dateFilter : true))
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  function onDelete(id: string) {
+  async function onDelete(id: string) {
     if (!confirm("Delete this bill?")) return;
-    deleteBill(id);
-    refresh();
+    try {
+      await deleteBillAction({ data: { id } });
+      router.invalidate();
+      toast.success("Bill deleted");
+    } catch (e) {
+      toast.error("Failed to delete bill");
+    }
   }
 
   if (bills.length === 0) {
@@ -107,13 +113,13 @@ function CustomerDetail() {
                   <td>
                     <div className="whitespace-nowrap">{formatDate(b.date)}</div>
                     <ul className="mt-1 text-xs text-muted-foreground">
-                      {b.items.map((it, i) => (
+                      {b.items.map((it: any, i: number) => (
                         <li key={i}>{it.name} × {it.qty}{it.isFree && <span className="ml-1 rounded bg-accent px-1 py-0.5 text-[9px] font-bold uppercase text-accent-foreground">Free</span>}</li>
                       ))}
                     </ul>
                   </td>
                   <td className="text-right whitespace-nowrap font-bold text-accent">₹{b.total}</td>
-                  <td>{b.freeItem ? <span className="text-accent">🎁 {b.freeItem.name}</span> : <span className="text-muted-foreground">—</span>}</td>
+                  <td>{(b as any).freeItemName ? <span className="text-accent">🎁 {(b as any).freeItemName}</span> : <span className="text-muted-foreground">—</span>}</td>
                   <td className="text-right whitespace-nowrap">
                     <button onClick={() => onDelete(b.id)} className="text-destructive hover:underline">Delete</button>
                   </td>
