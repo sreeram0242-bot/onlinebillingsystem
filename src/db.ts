@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import pkg, { type PrismaClient } from '@prisma/client';
+const PrismaClientConstructor = pkg.PrismaClient;
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 const { Pool } = pg;
@@ -16,7 +17,7 @@ export const db = new Proxy({} as PrismaClient, {
 
       prismaInstance =
         globalForPrisma.prisma ||
-        new PrismaClient({
+        new PrismaClientConstructor({
           adapter,
           log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
         });
