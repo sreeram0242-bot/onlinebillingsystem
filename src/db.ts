@@ -12,7 +12,20 @@ export const db = new Proxy({} as PrismaClient, {
     if (!prismaInstance) {
       const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
       
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      const connectionString = process.env.DATABASE_URL;
+      if (!connectionString) {
+        throw new Error("DATABASE_URL environment variable is missing.");
+      }
+
+      const isRemoteDb =
+        connectionString.includes('cockroachlabs.cloud') ||
+        connectionString.includes('sslmode=') ||
+        process.env.NODE_ENV === 'production';
+
+      const pool = new Pool({
+        connectionString,
+        ssl: isRemoteDb ? { rejectUnauthorized: false } : undefined,
+      });
       const adapter = new PrismaPg(pool);
 
       prismaInstance =
