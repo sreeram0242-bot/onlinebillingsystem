@@ -4,8 +4,25 @@ import { createServerFn } from "@tanstack/react-start";
 export const getMenuAction = createServerFn({ method: "GET" }).handler(async () => {
   const { db } = await import("./db");
   const { requireHotelOwner } = await import("./auth");
+  const { DEFAULT_MENU, newId } = await import("./lib/loyalty");
   const user = await requireHotelOwner();
-  return await db.menuItem.findMany({ where: { hotelId: user.hotelId! } });
+  const hotelId = user.hotelId!;
+
+  let items = await db.menuItem.findMany({ where: { hotelId } });
+  if (items.length === 0) {
+    await db.menuItem.createMany({
+      data: DEFAULT_MENU.map((item) => ({
+        id: newId(),
+        hotelId,
+        name: item.name,
+        price: item.price,
+        category: item.category,
+      })),
+    });
+    items = await db.menuItem.findMany({ where: { hotelId } });
+  }
+
+  return items;
 });
 
 export const saveMenuAction = createServerFn({ method: "POST" })
@@ -199,15 +216,31 @@ export const updateBillAction = createServerFn({ method: "POST" })
 export const getSettingsAction = createServerFn({ method: "GET" }).handler(async () => {
   const { db } = await import("./db");
   const { requireHotelOwner } = await import("./auth");
+  const { DEFAULT_CATEGORIES } = await import("./lib/loyalty");
   const user = await requireHotelOwner();
-  let settings = await db.settings.findUnique({ where: { hotelId: user.hotelId! } });
+  const hotelId = user.hotelId!;
+
+  let settings = await db.settings.findUnique({ where: { hotelId } });
   if (!settings) {
-    settings = await db.settings.create({ data: { hotelId: user.hotelId! } });
+    settings = await db.settings.create({
+      data: {
+        hotelId,
+        categoryNames: JSON.stringify(DEFAULT_CATEGORIES),
+        hotelName: "Ram Mess",
+      },
+    });
+  } else if (!settings.categoryNames || settings.categoryNames === "[]") {
+    await db.settings.update({
+      where: { hotelId },
+      data: { categoryNames: JSON.stringify(DEFAULT_CATEGORIES) },
+    });
+    settings.categoryNames = JSON.stringify(DEFAULT_CATEGORIES);
   }
+
   return {
     ...settings,
-    tableNames: JSON.parse(settings.tableNames),
-    categoryNames: JSON.parse(settings.categoryNames)
+    tableNames: JSON.parse(settings.tableNames || "[]"),
+    categoryNames: JSON.parse(settings.categoryNames || "[]"),
   };
 });
 
