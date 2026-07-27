@@ -57,10 +57,10 @@ const getHotelNameAction = createServerFn({ method: "GET" })
   .handler(async () => {
     const { getUserFromSession } = await import("../auth");
     const user = getUserFromSession();
-    if (!user || !user.hotelId) return "Engineers Kitchen";
+    if (!user || !user.hotelId) return "Ram Mess";
     const { db } = await import("../db");
     const hotel = await db.hotel.findUnique({ where: { id: user.hotelId } });
-    return hotel?.name || "Engineers Kitchen";
+    return hotel?.name || "Ram Mess";
   });
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -84,9 +84,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" },
-      { title: "Engineers Kitchen — Billing & Loyalty" },
+      { title: "Ram Mess — Billing & Loyalty" },
       { name: "description", content: "Restaurant billing, loyalty streaks, revenue & expense tracking." },
-      { property: "og:title", content: "Engineers Kitchen — Billing & Loyalty" },
+      { property: "og:title", content: "Ram Mess — Billing & Loyalty" },
       { property: "og:description", content: "Bills, customers, menu, revenue & expenses in one place." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -109,9 +109,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   loader: async ({ context }) => {
     try {
       const hotelName = await getHotelNameAction();
-      return { hotelName: hotelName || "Engineers Kitchen" };
+      return { hotelName: hotelName || "Ram Mess" };
     } catch {
-      return { hotelName: "Engineers Kitchen" };
+      return { hotelName: "Ram Mess" };
     }
   },
 });

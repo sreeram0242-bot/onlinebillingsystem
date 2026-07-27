@@ -28,7 +28,7 @@ export const Route = createFileRoute("/new-bill")({
     ]);
     const categories = settings.categoryNames.length > 0
       ? settings.categoryNames
-      : ["Sandwiches", "Burgers", "Fries", "Manchurian", "Noodles", "Rice", "Momos", "Mojito"];
+      : ["Tiffins", "Rice Specials", "Starters & Specials", "Biryani", "Beverages & Desserts"];
     return { 
       menu: menu.map(m => ({ ...m, category: m.category ?? undefined, costPrice: m.costPrice ?? undefined })) as MenuItem[],
       bills: bills.map(b => ({ ...b, items: b.items.map(i => ({ ...i, costPrice: i.costPrice ?? undefined })) })) as any,

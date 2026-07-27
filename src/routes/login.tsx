@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 import { loginAction } from "../actions";
 
 export const Route = createFileRoute("/login")({
@@ -8,6 +10,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { register, handleSubmit, formState: { isSubmitting } } = useForm({
     defaultValues: { email: "", password: "" }
@@ -30,7 +33,7 @@ function LoginPage() {
       <div className="card-elevated w-full max-w-sm p-6 space-y-6">
         <div className="text-center">
           <h1 className="font-display text-3xl text-primary">Sign In</h1>
-          <p className="text-sm text-muted-foreground mt-1">Engineers Kitchen Billing</p>
+          <p className="text-sm text-muted-foreground mt-1">Ram Mess Billing</p>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
@@ -39,7 +42,25 @@ function LoginPage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-foreground mb-1">Password</label>
-            <input type="password" {...register("password", { required: true })} className="input-field" />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                {...register("password", { required: true })}
+                className="input-field pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none transition-colors"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
           <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
             {isSubmitting ? "Signing in..." : "Sign In"}

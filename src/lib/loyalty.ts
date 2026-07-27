@@ -9,14 +9,11 @@ export type MenuItem = {
 };
 
 export const DEFAULT_CATEGORIES = [
-  "Sandwiches",
-  "Burgers",
-  "Fries",
-  "Manchurian",
-  "Noodles",
-  "Rice",
-  "Momos",
-  "Mojito",
+  "Tiffins",
+  "Rice Specials",
+  "Starters & Specials",
+  "Biryani",
+  "Beverages & Desserts",
 ];
 
 export const STREAK_TARGET = 6;
@@ -33,7 +30,7 @@ export type AppSettings = {
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  hotelName: "Engineers Kitchen",
+  hotelName: "Ram Mess",
   requireCustomerDetails: true,
   streakOfferEnabled: false,
   freeItemsEnabled: false,
@@ -72,88 +69,57 @@ export type Bill = {
 export type DeletedBill = Bill & { deletedAt: string };
 
 export function categoryFromId(id: string): string {
-  if (id.startsWith("mo")) return "Momos";
-  if (id.startsWith("mj")) return "Mojito";
-  if (id.startsWith("s")) return "Sandwiches";
-  if (id.startsWith("b")) return "Burgers";
-  if (id.startsWith("f")) return "Fries";
-  if (id.startsWith("m")) return "Manchurian";
-  if (id.startsWith("n")) return "Noodles";
-  if (id.startsWith("r")) return "Rice";
+  if (id.startsWith("t")) return "Tiffins";
+  if (id.startsWith("rs")) return "Rice Specials";
+  if (id.startsWith("st")) return "Starters & Specials";
+  if (id.startsWith("b")) return "Biryani";
+  if (id.startsWith("bv")) return "Beverages & Desserts";
   return "Other";
 }
 export function getCategoryOf(item: MenuItem): string {
   if (item.category && item.category.trim()) return item.category.trim();
-  // Only apply legacy ID-based categorization to original seed data (e.g., s1, b2, mo3)
   if (/^[a-z]+[0-9]+$/.test(item.id)) return categoryFromId(item.id);
   return "Other";
 }
 
 export const DEFAULT_MENU: MenuItem[] = [
-  { id: "s1", name: "Veg sandwich", price: 39 },
-  { id: "s2", name: "Club sandwich", price: 39 },
-  { id: "s3", name: "Veg korean toasty sandwich", price: 59 },
-  { id: "s4", name: "Veg loaded sandwich / Paneer", price: 59 },
-  { id: "s5", name: "Chicken sandwich", price: 69 },
-  { id: "s6", name: "Chicken loaded sandwich", price: 89 },
-  { id: "s7", name: "Egg stuffed sandwich", price: 69 },
-  { id: "s8", name: "Chicken Korean toasty sandwich", price: 79 },
-  { id: "s9", name: "Chocolate sandwich", price: 59 },
-  { id: "s10", name: "Bread omelette", price: 39 },
-  { id: "b1", name: "Veg Burger", price: 59 },
-  { id: "b2", name: "Veg Gochujang burger", price: 69 },
-  { id: "b3", name: "Chicken burger", price: 79 },
-  { id: "b4", name: "Ramali chicken burger", price: 99 },
-  { id: "b5", name: "Chicken gochujang burger", price: 99 },
-  { id: "b6", name: "Fried chicken burger", price: 89 },
-  { id: "b7", name: "Chicken smashed burger", price: 110 },
-  { id: "b8", name: "Double decker burger", price: 139 },
-  { id: "f1", name: "Classical french fries", price: 39 },
-  { id: "f2", name: "Peri peri french fries", price: 59 },
-  { id: "f3", name: "Veg loaded fries", price: 79 },
-  { id: "f4", name: "Chicken loaded fries", price: 139 },
-  { id: "f5", name: "Korean hot toasty fries", price: 59 },
-  { id: "f6", name: "Chilli potato pops", price: 59 },
-  { id: "f7", name: "Fried chicken wings (3pcs)", price: 79 },
-  { id: "f8", name: "Lays chicken", price: 79 },
-  { id: "f9", name: "Fried chicken lollipop (3pcs)", price: 79 },
-  { id: "f10", name: "Korean Toasty popcorn", price: 139 },
-  { id: "f11", name: "Korean toasty wings", price: 139 },
-  { id: "f12", name: "Korean Toasty lollipop", price: 139 },
-  { id: "f13", name: "Chicken pop corn", price: 99 },
-  { id: "m1", name: "Veg manchurian", price: 59 },
-  { id: "m2", name: "Paneer spicy manchurian", price: 69 },
-  { id: "m3", name: "Chicken spicy manchurian", price: 69 },
-  { id: "m4", name: "Crispy chicken manchurian", price: 79 },
-  { id: "n1", name: "Veg noodles", price: 59 },
-  { id: "n2", name: "Egg noodles", price: 69 },
-  { id: "n3", name: "Chicken noodles", price: 79 },
-  { id: "n4", name: "Crispy chicken noodles", price: 110 },
-  { id: "n5", name: "Korean special veg noodles", price: 69 },
-  { id: "n6", name: "Korean special egg noodles", price: 79 },
-  { id: "n7", name: "Korean special chicken noodles", price: 99 },
-  { id: "n8", name: "Schezwan veg noodles", price: 69 },
-  { id: "n9", name: "Schezwan egg noodles", price: 79 },
-  { id: "n10", name: "Schezwan chicken noodles", price: 99 },
-  { id: "r1", name: "Veg rice", price: 59 },
-  { id: "r2", name: "Egg rice", price: 69 },
-  { id: "r3", name: "Chicken rice", price: 79 },
-  { id: "r4", name: "Crispy chicken rice", price: 110 },
-  { id: "r5", name: "Korean special veg rice", price: 69 },
-  { id: "r6", name: "Korean special egg rice", price: 79 },
-  { id: "r7", name: "Korean special chicken rice", price: 99 },
-  { id: "r8", name: "Schezwan veg rice", price: 69 },
-  { id: "r9", name: "Schezwan egg rice", price: 79 },
-  { id: "r10", name: "Schezwan chicken rice", price: 89 },
-  { id: "mo1", name: "Veg momos", price: 59 },
-  { id: "mo2", name: "Paneer momos", price: 69 },
-  { id: "mo3", name: "Chicken momos", price: 79 },
-  { id: "mj1", name: "Deep blue sky mojito", price: 69 },
-  { id: "mj2", name: "Lemon and mint mojito", price: 69 },
-  { id: "mj3", name: "Green apple mojito", price: 69 },
-  { id: "mj4", name: "Triple sip extra vibe mojito", price: 79 },
-  { id: "mj5", name: "Peach mojito", price: 79 },
-  { id: "mj6", name: "Lemon soda", price: 49 },
+  // Tiffins
+  { id: "t1", name: "Plain Dosa", price: 50, category: "Tiffins" },
+  { id: "t2", name: "Masala Dosa", price: 70, category: "Tiffins" },
+  { id: "t3", name: "Ghee Roast Dosa", price: 90, category: "Tiffins" },
+  { id: "t4", name: "Mysore Masala Dosa", price: 85, category: "Tiffins" },
+  { id: "t5", name: "Onion Rava Dosa", price: 80, category: "Tiffins" },
+  { id: "t6", name: "Steamed Idli (2 pcs)", price: 40, category: "Tiffins" },
+  { id: "t7", name: "Medu Vada (2 pcs)", price: 45, category: "Tiffins" },
+  { id: "t8", name: "Onion Uttapam", price: 75, category: "Tiffins" },
+  { id: "t9", name: "Ven Pongal", price: 60, category: "Tiffins" },
+  { id: "t10", name: "Puri Bhaji (3 pcs)", price: 65, category: "Tiffins" },
+  // Rice Specials
+  { id: "rs1", name: "South Indian Meals / Thali", price: 120, category: "Rice Specials" },
+  { id: "rs2", name: "Sambar Rice", price: 70, category: "Rice Specials" },
+  { id: "rs3", name: "Curd Rice", price: 60, category: "Rice Specials" },
+  { id: "rs4", name: "Lemon Rice", price: 65, category: "Rice Specials" },
+  { id: "rs5", name: "Tamarind Rice (Pulihora)", price: 65, category: "Rice Specials" },
+  { id: "rs6", name: "Bisi Bele Bath", price: 80, category: "Rice Specials" },
+  { id: "rs7", name: "Tomato Rice", price: 70, category: "Rice Specials" },
+  { id: "rs8", name: "Ghee Sambar Vada", price: 55, category: "Rice Specials" },
+  // Starters & Specials
+  { id: "st1", name: "Chicken 65", price: 130, category: "Starters & Specials" },
+  { id: "st2", name: "Gobi 65", price: 90, category: "Starters & Specials" },
+  { id: "st3", name: "Paneer 65", price: 110, category: "Starters & Specials" },
+  { id: "st4", name: "Chicken Chukka", price: 140, category: "Starters & Specials" },
+  { id: "st5", name: "Egg Poriyal / Burji", price: 60, category: "Starters & Specials" },
+  { id: "st6", name: "Mutton Chukka", price: 180, category: "Starters & Specials" },
+  { id: "st7", name: "Fish Fry (Seer / Nethili)", price: 160, category: "Starters & Specials" },
+  // Biryani
+  { id: "b1", name: "Hyderabadi Veg Dum Biryani", price: 120, category: "Biryani" },
+  { id: "b2", name: "Ambur Chicken Biryani", price: 160, category: "Biryani" },
+  { id: "b3", name: "Mutton Biryani", price: 220, category: "Biryani" },
+  // Beverages & Desserts
+  { id: "bv1", name: "South Indian Filter Coffee", price: 30, category: "Beverages & Desserts" },
+  { id: "bv2", name: "Rava Kesari", price: 45, category: "Beverages & Desserts" },
+  { id: "bv3", name: "Paal Payasam", price: 50, category: "Beverages & Desserts" },
+  { id: "bv4", name: "Badam Milk", price: 40, category: "Beverages & Desserts" },
 ];
 
 export function todayISO(): string {

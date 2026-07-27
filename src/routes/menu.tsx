@@ -6,14 +6,14 @@ import { getMenuAction, saveMenuAction, saveCategoriesAction, getSettingsAction,
 import { useRouter } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/menu")({
-  head: () => ({ meta: [{ title: "Menu — Engineers Kitchen" }] }),
+  head: () => ({ meta: [{ title: "Menu — Ram Mess" }] }),
   component: MenuPage,
   loader: async () => {
     const menu = await getMenuAction();
     const settings = await getSettingsAction();
     const categories = settings.categoryNames.length > 0 
       ? settings.categoryNames 
-      : ["Sandwiches", "Burgers", "Fries", "Manchurian", "Noodles", "Rice", "Momos", "Mojito"];
+      : ["Tiffins", "Rice Specials", "Starters & Specials", "Biryani", "Beverages & Desserts"];
     return { 
       menu: menu.map(m => ({ ...m, category: m.category ?? undefined, costPrice: m.costPrice ?? undefined })) as MenuItem[],
       categories 

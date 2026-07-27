@@ -39,22 +39,43 @@ export const importDefaultMenuAction = createServerFn({ method: "POST" }).handle
   const existing = await db.menuItem.count({ where: { hotelId } });
   if (existing > 0) return { skipped: true, message: "Menu already has items" };
   const defaultItems = [
-    { name: "Chicken Sandwich", price: 80, category: "Sandwiches" },
-    { name: "Veg Sandwich", price: 60, category: "Sandwiches" },
-    { name: "Chicken Burger", price: 100, category: "Burgers" },
-    { name: "Veg Burger", price: 70, category: "Burgers" },
-    { name: "French Fries", price: 60, category: "Fries" },
-    { name: "Masala Fries", price: 70, category: "Fries" },
-    { name: "Chicken Manchurian", price: 120, category: "Manchurian" },
-    { name: "Veg Manchurian", price: 90, category: "Manchurian" },
-    { name: "Chicken Noodles", price: 110, category: "Noodles" },
-    { name: "Veg Noodles", price: 80, category: "Noodles" },
-    { name: "Chicken Fried Rice", price: 110, category: "Rice" },
-    { name: "Veg Fried Rice", price: 80, category: "Rice" },
-    { name: "Steamed Momos (6pcs)", price: 70, category: "Momos" },
-    { name: "Fried Momos (6pcs)", price: 90, category: "Momos" },
-    { name: "Lemon Mojito", price: 60, category: "Mojito" },
-    { name: "Watermelon Mojito", price: 70, category: "Mojito" },
+    // Tiffins
+    { name: "Plain Dosa", price: 50, category: "Tiffins" },
+    { name: "Masala Dosa", price: 70, category: "Tiffins" },
+    { name: "Ghee Roast Dosa", price: 90, category: "Tiffins" },
+    { name: "Mysore Masala Dosa", price: 85, category: "Tiffins" },
+    { name: "Onion Rava Dosa", price: 80, category: "Tiffins" },
+    { name: "Steamed Idli (2 pcs)", price: 40, category: "Tiffins" },
+    { name: "Medu Vada (2 pcs)", price: 45, category: "Tiffins" },
+    { name: "Onion Uttapam", price: 75, category: "Tiffins" },
+    { name: "Ven Pongal", price: 60, category: "Tiffins" },
+    { name: "Puri Bhaji (3 pcs)", price: 65, category: "Tiffins" },
+    // Rice Specials
+    { name: "South Indian Meals / Thali", price: 120, category: "Rice Specials" },
+    { name: "Sambar Rice", price: 70, category: "Rice Specials" },
+    { name: "Curd Rice", price: 60, category: "Rice Specials" },
+    { name: "Lemon Rice", price: 65, category: "Rice Specials" },
+    { name: "Tamarind Rice (Pulihora)", price: 65, category: "Rice Specials" },
+    { name: "Bisi Bele Bath", price: 80, category: "Rice Specials" },
+    { name: "Tomato Rice", price: 70, category: "Rice Specials" },
+    { name: "Ghee Sambar Vada", price: 55, category: "Rice Specials" },
+    // Starters & Specials
+    { name: "Chicken 65", price: 130, category: "Starters & Specials" },
+    { name: "Gobi 65", price: 90, category: "Starters & Specials" },
+    { name: "Paneer 65", price: 110, category: "Starters & Specials" },
+    { name: "Chicken Chukka", price: 140, category: "Starters & Specials" },
+    { name: "Egg Poriyal / Burji", price: 60, category: "Starters & Specials" },
+    { name: "Mutton Chukka", price: 180, category: "Starters & Specials" },
+    { name: "Fish Fry (Seer / Nethili)", price: 160, category: "Starters & Specials" },
+    // Biryani
+    { name: "Hyderabadi Veg Dum Biryani", price: 120, category: "Biryani" },
+    { name: "Ambur Chicken Biryani", price: 160, category: "Biryani" },
+    { name: "Mutton Biryani", price: 220, category: "Biryani" },
+    // Beverages & Desserts
+    { name: "South Indian Filter Coffee", price: 30, category: "Beverages & Desserts" },
+    { name: "Rava Kesari", price: 45, category: "Beverages & Desserts" },
+    { name: "Paal Payasam", price: 50, category: "Beverages & Desserts" },
+    { name: "Badam Milk", price: 40, category: "Beverages & Desserts" },
   ];
   await db.menuItem.createMany({
     data: defaultItems.map(item => ({
