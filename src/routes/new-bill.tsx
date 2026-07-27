@@ -171,7 +171,10 @@ function NewBill() {
   }
 
 
+  const [isSaving, setIsSaving] = useState(false);
+
   async function save() {
+    if (isSaving) return;
     if (!settings) return;
     if (items.length === 0) { toast.error("Add at least one item."); return; }
     // Customer details are now ALWAYS optional to respect privacy.
@@ -210,6 +213,7 @@ function NewBill() {
       splitGpay: paymentMethod === "SPLIT" ? (parseFloat(splitGpay) || 0) : undefined,
     };
 
+    setIsSaving(true);
     try {
       if (editId) {
         await updateBillAction({ data: billData });
@@ -219,29 +223,27 @@ function NewBill() {
         toast.success(`Bill #${orderNo} saved · ₹${total}`);
       }
 
-      // Auto-print if enabled and printer connected
+      // Auto-print in background if enabled and printer connected
       if ((settings as any).printEnabled && isPrinterConnected()) {
-        try {
-          await printBill({
-            hotelName: (settings as any).hotelName || "Hotel",
-            orderNo,
-            date,
-            tableName: settings.tablesEnabled ? tableName : undefined,
-            customerName: name.trim() || undefined,
-            customerPhone: phone.trim() || undefined,
-            items,
-            subtotal,
-            gstPct,
-            gstAmount,
-            total,
-            paymentMethod,
-            splitCash: paymentMethod === "SPLIT" ? (parseFloat(splitCash) || 0) : undefined,
-            splitGpay: paymentMethod === "SPLIT" ? (parseFloat(splitGpay) || 0) : undefined,
-            freeItemName: freeItem?.name,
-          });
-        } catch (pe: any) {
+        printBill({
+          hotelName: (settings as any).hotelName || "Ram Mess",
+          orderNo,
+          date,
+          tableName: settings.tablesEnabled ? tableName : undefined,
+          customerName: name.trim() || undefined,
+          customerPhone: phone.trim() || undefined,
+          items,
+          subtotal,
+          gstPct,
+          gstAmount,
+          total,
+          paymentMethod,
+          splitCash: paymentMethod === "SPLIT" ? (parseFloat(splitCash) || 0) : undefined,
+          splitGpay: paymentMethod === "SPLIT" ? (parseFloat(splitGpay) || 0) : undefined,
+          freeItemName: freeItem?.name,
+        }).catch((pe: any) => {
           toast.error("Print failed: " + (pe.message || "Printer error"));
-        }
+        });
       }
       
       router.invalidate();
@@ -249,6 +251,8 @@ function NewBill() {
       else navigate({ to: "/bills" });
     } catch (e: any) {
       toast.error(e.message || "Failed to save bill");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -427,8 +431,16 @@ function NewBill() {
             </div>
           )}
 
-          <button onClick={save} className="btn-accent mt-3 w-full text-sm sm:mt-5 sm:text-base md:text-lg">
-            {editId ? `💾 Update Bill · ₹${total}` : `💾 Save Bill · ₹${total}`}
+          <button
+            onClick={save}
+            disabled={isSaving}
+            className="btn-accent mt-3 w-full text-sm sm:mt-5 sm:text-base md:text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving
+              ? "⏳ Saving..."
+              : editId
+                ? `💾 Update Bill · ₹${total}`
+                : `💾 Save Bill · ₹${total}`}
           </button>
         </div>
       </div>
